@@ -1,0 +1,100 @@
+1.Total no of crimes
+
+q1 = LOAD '/que/ccordinates.csv' using PigStorage(',') AS (ID:int,CrimeDate:chararray,CrimeTime:chararray,Incidents:int,Location1:chararray);
+a = group q1 all;
+b = foreach a generate SUM(q1.Incidents);
+dump b;
+
+
+2.parameter substitutions
+total no of crimes by a particular weapon (Firearm)
+
+
+=> load '/query/ccode.csv' USING PigStorage(',') AS (ID:int, CrimeCode:chararray,Description:chararray, Weapon:chararray, Incidents:int);
+A= FILTER @ BY Weapon=='FIREARM';
+group_A = GROUP A ALL;
+A_count = FOREACH group_A GENERATE SUM(A.Incidents);
+dump A_count;
+
+
+pig -param weapon=FIREARM q2a.pig
+
+
+
+
+3. Total crimes commited inside house (join)
+
+cdic = LOAD '/query/cdistrict.csv' USING PigStorage(',') AS (ID:int, CrimeDate:chararray, CrimeTime:chararray, Description:chararray, Weapon:chararray, District:chararray);
+ccd = LOAD '/query/ccode.csv' USING PigStorage(',') AS (ID:int, CrimeCode:chararray, Description:chararray, Weapon:chararray, Incidents:int);
+filter_cdic = FILTER cdic BY Description == '$desc';
+filter_ccd= FILTER ccd BY Description == '$desc';
+join_query= JOIN filter_ccd by ID, filter_cdic by ID;
+join_res = group join_query ALL;
+res = FOREACH join_res GENERATE SUM(join_query.filter_ccd::Incidents);
+dump res;
+
+
+4. Total crimes in a particualar location(join)
+
+cdi = LOAD '/query/cio.csv' USING PigStorage(',') AS (ID:int, CrimeDate:chararray, CrimeTime:chararray,Location:chararray, Description:chararray);
+cc = LOAD '/query/clweapon.csv' USING PigStorage(',') AS (ID:int, Location:chararray, Description:chararray, Weapon:chararray, Post:int);
+filter_cdic = FILTER cdi BY Location == '$desc';
+filter_ccd= FILTER cc BY Location == '$desc';
+join_query= JOIN filter_ccd by ID, filter_cdic by ID;
+join_res = group join_query ALL;
+res = FOREACH join_res GENERATE COUNT(join_query.filter_ccd::Post);
+dump res;
+
+5. checking no of incidents occured and it belongs to which district (join)
+
+cdic = LOAD '/query/cdistrict.csv' USING PigStorage(',') AS (ID:int, CrimeDate:chararray, CrimeTime:chararray, Description:chararray, Weapon:chararray, District:chararray);
+ccd = LOAD '/query/ccordinates.csv' using PigStorage(',') AS (ID:int,CrimeDate:chararray,CrimeTime:chararray,Incidents:int);
+q1 = filter cdic by ID is not null;
+q2 = filter ccd by ID is not null;
+grp1 = group cdic by ID;
+grp2 = group ccd by ID;
+qu1 = foreach grp1 generate group as ID, cdic.District;
+qu2 = foreach grp2 generate group as ID, ccd.Incidents;
+j = join qu1 by ID, qu2 by ID;
+query1 = FOREACH j GENERATE $0,$1,$3;
+dump query1;
+
+
+6. differents weapon used for commiting crimes
+
+
+ccd = LOAD '/query/ccode.csv' USING PigStorage(',') AS (ID:int, CrimeCode:chararray, Description:chararray, Weapon:chararray, Incidents:int);
+q3a = filter ccd by (Weapon IS NOT NULL);
+q3b = FOREACH q3a GENERATE(Weapon) as wp;
+q3c = DISTINCT q3b;
+dump q3c;
+
+
+
+7. Total no of incidents by every weapon
+
+org = LOAD '/query/original.csv' USING PigStorage(',') AS (ID:int, Weapon:chararray, District:chararray, Neighbourhood:chararray, Incidents:int);
+ftr = filter org by (Weapon IS NOT NULL) and (Incidents IS NOT NULL);
+grp = group ftr by (Weapon, Incidents);
+res = FOREACH grp generate FLATTEN(group) as (Weapon, Incidents), COUNT($1) as c;
+dump res;
+
+
+8. Neighbourhood and weapons using which more than 1 incidents happend on a particular day
+
+org = LOAD '/query/original.csv' USING PigStorage(',') AS (ID:int, Weapon:chararray, District:chararray, Neighbourhood:chararray, Incidents:int);
+query4 = filter org by Incidents>1;
+query4a = group query4 all;
+query4b = foreach query4a generate (query4.District, query4.Weapon);
+Dump query4b;
+
+
+9. Total no of incidents by every district
+
+org = LOAD '/query/original.csv' USING PigStorage(',') AS (ID:int, Weapon:chararray, District:chararray, Neighbourhood:chararray, Incidents:int);
+ftr = filter org by (District IS NOT NULL) and (Incidents IS NOT NULL);
+grp = group ftr by (District, Incidents);
+res = FOREACH grp generate FLATTEN(group) as (District), COUNT($1) as c;
+dump res;
+
+
